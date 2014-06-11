@@ -1,5 +1,5 @@
 /*
- * (C) Copyright 2006-2010 Nuxeo SAS (http://nuxeo.com/) and contributors.
+ * (C) Copyright 2006-2014 Nuxeo SAS (http://nuxeo.com/) and contributors.
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the GNU Lesser General Public License
@@ -12,7 +12,7 @@
  * Lesser General Public License for more details.
  *
  * Contributors:
- *     <a href="mailto:ldoguin@nuxeo.com">Laurent Doguin</a>
+ *     <a href="mailto:tdelprat@nuxeo.com">Thierry Delprat</a>
  *
  * $Id:
  */
@@ -26,6 +26,7 @@ import static org.nuxeo.ecm.platform.mail.utils.MailCoreConstants.PARENT_PATH_KE
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.List;
 
 import javax.mail.Message;
 import javax.mail.Session;
@@ -35,10 +36,12 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.nuxeo.common.utils.FileUtils;
+import org.nuxeo.ecm.core.api.Blob;
 import org.nuxeo.ecm.core.api.ClientException;
 import org.nuxeo.ecm.core.api.DocumentModel;
 import org.nuxeo.ecm.core.api.DocumentModelList;
 import org.nuxeo.ecm.core.api.PathRef;
+import org.nuxeo.ecm.core.api.blobholder.BlobHolder;
 import org.nuxeo.ecm.core.storage.sql.SQLRepositoryTestCase;
 import org.nuxeo.ecm.platform.mail.action.ExecutionContext;
 import org.nuxeo.ecm.platform.mail.action.MessageActionPipe;
@@ -48,8 +51,12 @@ import org.nuxeo.ecm.platform.mail.utils.MailCoreConstants;
 import org.nuxeo.ecm.platform.mimetype.interfaces.MimetypeRegistry;
 import org.nuxeo.runtime.api.Framework;
 
-public class TesteMailInjection extends
-        SQLRepositoryTestCase {
+/**
+ * 
+ * @author tiry
+ * 
+ */
+public class TesteMailInjection extends SQLRepositoryTestCase {
 
     protected MailService mailService;
 
@@ -89,26 +96,39 @@ public class TesteMailInjection extends
         assertNotNull(children);
         assertTrue(!children.isEmpty());
         assertEquals(1, children.size());
+
         injectEmail("data/test_mail2.eml", mailFolder1.getPathAsString());
         children = session.getChildren(mailFolder1.getRef());
         assertEquals(2, children.size());
+
+        injectEmail("data/test_mail_attachment.eml",
+                mailFolder1.getPathAsString());
+        children = session.getChildren(mailFolder1.getRef());
+        assertEquals(3, children.size());
+
+        DocumentModel mailWithAttachment = session.query(
+                "select * from Document where dc:title = \"MailWithAttachment\"").get(
+                0);
+        BlobHolder bh = mailWithAttachment.getAdapter(BlobHolder.class);
+        assertNotNull(bh);
+        List<Blob> blobs = bh.getBlobs();
+        assertNotNull(blobs);
+        assertEquals(3, blobs.size());
     }
 
-    private void injectEmail(String filePath, String parentPath) throws Exception {
+    private void injectEmail(String filePath, String parentPath)
+            throws Exception {
         MessageActionPipe pipe = mailService.getPipe("nxmail");
         assertNotNull(pipe);
         Visitor visitor = new Visitor(pipe);
         ExecutionContext initialExecutionContext = new ExecutionContext();
         assertNotNull(session.getSessionId());
         // 5.8 setup
-        initialExecutionContext.put(
-                MailCoreConstants.CORE_SESSION_ID_KEY,
+        initialExecutionContext.put(MailCoreConstants.CORE_SESSION_ID_KEY,
                 session.getSessionId());
-        initialExecutionContext.put(
-                MailCoreConstants.MIMETYPE_SERVICE_KEY,
+        initialExecutionContext.put(MailCoreConstants.MIMETYPE_SERVICE_KEY,
                 Framework.getLocalService(MimetypeRegistry.class));
-        initialExecutionContext.put(PARENT_PATH_KEY,
-                parentPath);
+        initialExecutionContext.put(PARENT_PATH_KEY, parentPath);
 
         Message[] messages = { getSampleMessage(filePath) };
 
@@ -126,7 +146,8 @@ public class TesteMailInjection extends
     }
 
     private void createMailFolders() throws ClientException {
-        mailFolder1 = session.createDocumentModel("/", "mailFolder1", MailCoreConstants.MAIL_FOLDER_TYPE);
+        mailFolder1 = session.createDocumentModel("/", "mailFolder1",
+                MailCoreConstants.MAIL_FOLDER_TYPE);
         session.createDocument(mailFolder1);
         session.saveDocument(mailFolder1);
         session.save();
