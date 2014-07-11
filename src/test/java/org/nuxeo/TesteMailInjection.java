@@ -113,7 +113,7 @@ public class TesteMailInjection extends SQLRepositoryTestCase {
         assertNotNull(bh);
         List<Blob> blobs = bh.getBlobs();
         assertNotNull(blobs);
-        assertEquals(3, blobs.size());
+        assertEquals(4, blobs.size());
     }
 
     private void injectEmail(String filePath, String parentPath)
